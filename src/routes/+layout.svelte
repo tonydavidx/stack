@@ -16,8 +16,8 @@
         db.init();
     });
 
-    async function handleCreateList(title: string, icon: string, color: string) {
-        await db.createList(title, icon, color);
+    async function handleCreateList(title: string, icon: string, color: string, enableQuantity: boolean) {
+        await db.createList(title, icon, color, enableQuantity);
         showCreateDialog = false;
     }
 </script>

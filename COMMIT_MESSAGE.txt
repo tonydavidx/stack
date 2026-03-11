@@ -1,8 +1,10 @@
-feat: implement core PWA functionality and local-first data sync
+feat: implement item categorization, soft-delete, and list reset
 
-- Setup SvelteKit PWA with static adapter and @vite-pwa/sveltekit
-- Integrate PouchDB for local-first persistence with real-time reactivity
-- Implement Svelte 5 runes-based database store (db.svelte.ts)
-- Add Sidebar, ListDialog, and Home page with list grid UI
-- Define custom theme, typography, and animations in layout.css
-- Support list CRUD operations with custom icons and colors
+- Introduce "Edit Items" view for managing name, default quantity, and category
+- Implement a soft-delete system (inList flag) to move items between list and history
+- Support item categorization with automatic grouping in the list view
+- Add "Reset List" functionality to move all active items to history at once
+- Refactor database store with soft-delete logic and bulk update support
+- Improve UI with a 3-dot dropdown menu for advanced list actions
+- Add loading states and improved error handling for database initialization
+- Enhance checkbox styling with a custom CSS checkmark

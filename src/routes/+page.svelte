@@ -28,8 +28,8 @@
         itemCounts = counts;
     }
 
-    async function handleCreateList(title: string, icon: string, color: string) {
-        const newList = await db.createList(title, icon, color);
+    async function handleCreateList(title: string, icon: string, color: string, enableQuantity: boolean) {
+        const newList = await db.createList(title, icon, color, enableQuantity);
         showCreateDialog = false;
         goto(`/list/${newList._id.replace('list:', '')}`);
     }

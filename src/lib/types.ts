@@ -5,6 +5,7 @@ export interface ListDoc {
     title: string;
     icon: string;
     color: string;
+    enableQuantity?: boolean;
     createdAt: string;
 }
 
@@ -15,6 +16,9 @@ export interface ItemDoc {
     listId: string;
     text: string;
     completed: boolean;
+    inList: boolean; // True if active in the list, false if moved to history
+    quantity?: number;
+    category?: string;
     createdAt: string;
 }
 

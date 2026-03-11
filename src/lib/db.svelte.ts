@@ -21,7 +21,7 @@ async function init() {
 
     // Create index for item lookups by listId
     await db.createIndex({
-        index: { fields: ['type', 'listId'] }
+        index: { fields: ['type', 'listId', 'text'] }
     });
 
     await loadLists();
@@ -48,7 +48,6 @@ async function init() {
 function handleDelete(id: string) {
     if (id.startsWith('list:')) {
         lists = lists.filter((l) => l._id !== id);
-        // Also remove cached items for this list
         const copy = { ...itemsByList };
         delete copy[id];
         itemsByList = copy;
@@ -105,7 +104,6 @@ async function loadLists() {
 }
 
 async function loadItems(listId: string): Promise<ItemDoc[]> {
-    // Check cache first
     if (itemsByList[listId]) return itemsByList[listId];
 
     const result = await db.find({
@@ -123,13 +121,14 @@ function generateId(prefix: string): string {
     return `${prefix}:${crypto.randomUUID()}`;
 }
 
-async function createList(title: string, icon: string, color: string): Promise<ListDoc> {
+async function createList(title: string, icon: string, color: string, enableQuantity: boolean = false): Promise<ListDoc> {
     const doc: ListDoc = {
         _id: generateId('list'),
         type: 'list',
         title,
         icon,
         color,
+        enableQuantity,
         createdAt: new Date().toISOString()
     };
     await db.put(doc);
@@ -141,14 +140,12 @@ async function updateList(list: ListDoc): Promise<void> {
 }
 
 async function deleteList(listId: string): Promise<void> {
-    // Delete all items in this list first
     const items = await loadItems(listId);
     for (const item of items) {
         if (item._rev) {
             await db.remove(item._id, item._rev);
         }
     }
-    // Delete the list itself
     const list = await db.get(listId);
     await db.remove(list._id, list._rev!);
 }
@@ -156,13 +153,31 @@ async function deleteList(listId: string): Promise<void> {
 // ---------------------
 // Item CRUD
 // ---------------------
-async function addItem(listId: string, text: string): Promise<ItemDoc> {
+async function addItem(listId: string, text: string, quantity?: number): Promise<ItemDoc> {
+    // Check if item already exists (in history or list)
+    const existingItems = itemsByList[listId] || await loadItems(listId);
+    const existing = existingItems.find(i => i.text.toLowerCase() === text.toLowerCase());
+
+    if (existing) {
+        const updated = {
+            ...existing,
+            inList: true,
+            completed: false,
+            // Only update quantity if provided
+            ...(quantity !== undefined ? { quantity } : {})
+        };
+        await db.put(updated);
+        return updated;
+    }
+
     const doc: ItemDoc = {
         _id: generateId('item'),
         type: 'item',
         listId,
         text,
         completed: false,
+        inList: true,
+        quantity,
         createdAt: new Date().toISOString()
     };
     await db.put(doc);
@@ -174,13 +189,22 @@ async function toggleItem(item: ItemDoc): Promise<void> {
 }
 
 async function deleteItem(item: ItemDoc): Promise<void> {
+    // Soft delete: move to history
+    await db.put({ ...item, inList: false, completed: false });
+}
+
+async function permanentlyDeleteItem(item: ItemDoc): Promise<void> {
     if (item._rev) {
         await db.remove(item._id, item._rev);
     }
 }
 
-async function updateItemText(item: ItemDoc, newText: string): Promise<void> {
-    await db.put({ ...item, text: newText });
+async function updateItem(item: ItemDoc, updates: Partial<ItemDoc>): Promise<void> {
+    await db.put({ ...item, ...updates });
+}
+
+async function updateItemQuantity(item: ItemDoc, quantity?: number): Promise<void> {
+    await db.put({ ...item, quantity });
 }
 
 // ---------------------
@@ -188,12 +212,48 @@ async function updateItemText(item: ItemDoc, newText: string): Promise<void> {
 // ---------------------
 async function getItemCount(listId: string): Promise<number> {
     const items = await loadItems(listId);
-    return items.length;
+    return items.filter(i => i.inList).length;
 }
 
 async function getActiveItemCount(listId: string): Promise<number> {
     const items = await loadItems(listId);
-    return items.filter((i) => !i.completed).length;
+    return items.filter((i) => i.inList && !i.completed).length;
+}
+
+// ---------------------
+// Reset List Helper
+// ---------------------
+async function resetListItems(listId: string): Promise<void> {
+    const items = itemsByList[listId] || [];
+    const activeItems = items.filter(i => i.inList);
+    
+    if (activeItems.length === 0) return;
+
+    try {
+        const updates = activeItems.map(item => ({
+            ...item,
+            inList: false,
+            completed: false
+        }));
+
+        const responses = await db.bulkDocs(updates);
+        
+        // Update local state for all successful updates
+        responses.forEach((response, index) => {
+            if ('ok' in response && response.ok) {
+                const item = activeItems[index];
+                const localItem = items.find(i => i._id === item._id);
+                if (localItem) {
+                    localItem.inList = false;
+                    localItem.completed = false;
+                    localItem._rev = response.rev;
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error resetting list:', error);
+        throw error;
+    }
 }
 
 // ---------------------
@@ -212,8 +272,11 @@ export function getDb() {
         addItem,
         toggleItem,
         deleteItem,
-        updateItemText,
+        permanentlyDeleteItem,
+        updateItem,
+        updateItemQuantity,
         getItemCount,
-        getActiveItemCount
+        getActiveItemCount,
+        resetListItems
     };
 }

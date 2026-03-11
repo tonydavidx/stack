@@ -6,7 +6,7 @@
         list?: ListDoc;
         open: boolean;
         onclose: () => void;
-        onsave: (title: string, icon: string, color: string) => void;
+        onsave: (title: string, icon: string, color: string, enableQuantity: boolean) => void;
     }
 
     let { mode, list, open, onclose, onsave }: Props = $props();
@@ -14,6 +14,7 @@
     let title = $state('');
     let selectedIcon = $state('📋');
     let selectedColor = $state('#6366f1');
+    let enableQuantity = $state(false);
 
     const ICONS = ['📋', '🛒', '✅', '📝', '🎯', '💡', '🏠', '💼', '🎨', '📚', '🍽️', '🏋️', '🎵', '✈️', '🎁', '❤️', '⭐', '🔧', '📦', '🌱'];
     const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#a855f7', '#64748b'];
@@ -23,17 +24,19 @@
             title = list.title;
             selectedIcon = list.icon;
             selectedColor = list.color;
+            enableQuantity = list.enableQuantity ?? false;
         } else if (open && mode === 'create') {
             title = '';
             selectedIcon = '📋';
             selectedColor = '#6366f1';
+            enableQuantity = false;
         }
     });
 
     function handleSubmit(e: Event) {
         e.preventDefault();
         if (!title.trim()) return;
-        onsave(title.trim(), selectedIcon, selectedColor);
+        onsave(title.trim(), selectedIcon, selectedColor, enableQuantity);
         onclose();
     }
 
@@ -93,6 +96,22 @@
                             ></button>
                         {/each}
                     </div>
+                </div>
+
+                <div class="field">
+                    <label for="enable-quantity">Options</label>
+                    <label class="toggle-row">
+                        <input
+                            id="enable-quantity"
+                            type="checkbox"
+                            class="toggle-input"
+                            bind:checked={enableQuantity}
+                        />
+                        <span class="toggle-track">
+                            <span class="toggle-thumb"></span>
+                        </span>
+                        <span class="toggle-label">Enable item quantities</span>
+                    </label>
                 </div>
 
                 <div class="dialog-actions">
@@ -316,5 +335,54 @@
     .submit-btn:disabled {
         opacity: 0.4;
         cursor: not-allowed;
+    }
+
+    /* Toggle */
+    .toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        padding: 8px 0;
+    }
+
+    .toggle-input {
+        display: none !important;
+    }
+
+    .toggle-track {
+        width: 40px;
+        height: 22px;
+        background: rgba(148, 163, 184, 0.15);
+        border-radius: 11px;
+        position: relative;
+        transition: background 0.2s;
+        flex-shrink: 0;
+    }
+
+    .toggle-input:checked + .toggle-track {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    }
+
+    .toggle-thumb {
+        width: 16px;
+        height: 16px;
+        background: #94a3b8;
+        border-radius: 50%;
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        transition: all 0.2s;
+    }
+
+    .toggle-input:checked + .toggle-track .toggle-thumb {
+        transform: translateX(18px);
+        background: white;
+    }
+
+    .toggle-label {
+        font-size: 14px;
+        color: #cbd5e1;
+        font-weight: 400;
     }
 </style>
