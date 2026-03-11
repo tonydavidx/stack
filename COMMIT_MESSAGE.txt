@@ -1,0 +1,8 @@
+feat: implement core PWA functionality and local-first data sync
+
+- Setup SvelteKit PWA with static adapter and @vite-pwa/sveltekit
+- Integrate PouchDB for local-first persistence with real-time reactivity
+- Implement Svelte 5 runes-based database store (db.svelte.ts)
+- Add Sidebar, ListDialog, and Home page with list grid UI
+- Define custom theme, typography, and animations in layout.css
+- Support list CRUD operations with custom icons and colors
