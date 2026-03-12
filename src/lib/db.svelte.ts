@@ -21,35 +21,54 @@ function getDbInstance() {
 let lists = $state<ListDoc[]>([]);
 let itemsByList = $state<Record<string, ItemDoc[]>>({});
 let initialized = $state(false);
+let initPromise: Promise<void> | null = null;
 
 // ---------------------
 // Initialization
 // ---------------------
 async function init() {
-    const database = getDbInstance();
-    if (initialized || !database) return;
+    if (initPromise) return initPromise;
+    
+    initPromise = (async () => {
+        const database = getDbInstance();
+        if (initialized || !database) return;
 
-    // Create index for item lookups by listId
-    await database.createIndex({
-        index: { fields: ['type', 'listId', 'text'] }
-    });
+        try {
+            // Create index for item lookups by listId
+            await database.createIndex({
+                index: { fields: ['type', 'listId', 'text'] }
+            });
 
-    await loadLists();
+            await loadLists();
 
-    // Live changes feed — pushes updates into runes
-    database.changes({
-        live: true,
-        since: 'now',
-        include_docs: true
-    }).on('change', (change) => {
-        if (change.deleted) {
-            handleDelete(change.id);
-        } else if (change.doc) {
-            handleUpsert(change.doc as StackDoc);
+            // Live changes feed — pushes updates into runes
+            database.changes({
+                live: true,
+                since: 'now',
+                include_docs: true
+            }).on('change', (change) => {
+                if (change.deleted) {
+                    handleDelete(change.id);
+                } else if (change.doc) {
+                    handleUpsert(change.doc as StackDoc);
+                }
+            });
+
+            initialized = true;
+        } catch (err) {
+            console.error('DB init failed:', err);
+            initPromise = null;
+            throw err;
         }
-    });
+    })();
+    
+    return initPromise;
+}
 
-    initialized = true;
+async function ensureInit() {
+    if (!initialized) {
+        await init();
+    }
 }
 
 // ---------------------
@@ -116,6 +135,7 @@ async function loadLists() {
 }
 
 async function loadItems(listId: string): Promise<ItemDoc[]> {
+    await ensureInit();
     const database = getDbInstance();
     if (!database) return [];
     const result = await database.find({
@@ -137,6 +157,7 @@ function generateId(prefix: string): string {
 }
 
 async function createList(title: string, icon: string, color: string, enableQuantity: boolean = false): Promise<ListDoc> {
+    await ensureInit();
     const doc: ListDoc = {
         _id: generateId('list'),
         type: 'list',
@@ -152,11 +173,13 @@ async function createList(title: string, icon: string, color: string, enableQuan
 }
 
 async function updateList(list: ListDoc): Promise<void> {
+    await ensureInit();
     const database = getDbInstance();
     if (database) await database.put(list);
 }
 
 async function deleteList(listId: string): Promise<void> {
+    await ensureInit();
     const items = await loadItems(listId);
     const database = getDbInstance();
     if (!database) return;
@@ -174,6 +197,7 @@ async function deleteList(listId: string): Promise<void> {
 // Item CRUD
 // ---------------------
 async function addItem(listId: string, text: string, quantity?: number): Promise<ItemDoc> {
+    await ensureInit();
     // Check if item already exists (in history or list)
     const existingItems = itemsByList[listId] || await loadItems(listId);
     const existing = existingItems.find(i => i.text.toLowerCase() === text.toLowerCase());
@@ -210,18 +234,21 @@ async function addItem(listId: string, text: string, quantity?: number): Promise
 }
 
 async function toggleItem(item: ItemDoc): Promise<void> {
+    await ensureInit();
     const updated = { ...item, completed: !item.completed };
     const database = getDbInstance();
     if (database) await database.put(updated);
 }
 
 async function deleteItem(item: ItemDoc): Promise<void> {
+    await ensureInit();
     const updated = { ...item, inList: false };
     const database = getDbInstance();
     if (database) await database.put(updated);
 }
 
 async function permanentlyDeleteItem(item: ItemDoc): Promise<void> {
+    await ensureInit();
     const database = getDbInstance();
     if (database && item._rev) {
         await database.remove(item._id, item._rev);
@@ -229,12 +256,14 @@ async function permanentlyDeleteItem(item: ItemDoc): Promise<void> {
 }
 
 async function updateItem(item: ItemDoc, changes: Partial<ItemDoc>): Promise<void> {
+    await ensureInit();
     const updated = { ...item, ...changes };
     const database = getDbInstance();
     if (database) await database.put(updated);
 }
 
 async function updateItemQuantity(item: ItemDoc, quantity?: number): Promise<void> {
+    await ensureInit();
     const database = getDbInstance();
     if (database) await database.put({ ...item, quantity });
 }
@@ -256,6 +285,7 @@ async function getActiveItemCount(listId: string): Promise<number> {
 // Reset List Helper
 // ---------------------
 async function resetListItems(listId: string): Promise<void> {
+    await ensureInit();
     const items = itemsByList[listId] || [];
     const activeItems = items.filter(i => i.inList);
     

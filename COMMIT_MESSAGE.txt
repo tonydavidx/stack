@@ -1,9 +1,9 @@
-feat: enhance PWA robustness and database initialization
+feat: implement robust DB initialization and refine PWA config
 
-- Refactor `db.svelte.ts` to use a lazy, browser-only PouchDB initialization pattern
-- Add explicit service worker registration and web manifest links to `app.html`
-- Update `vite.config.ts` with explicit PWA `id`, `purpose`, and `injectRegister` settings
-- Implement safer database access across all CRUD operations with `getDbInstance`
-- Simplify root layout by removing redundant `pwaInfo` handling
-- Track item `usageCount` for frequency-based sorting in history
-- Add development tools (seed/clear data) to Sidebar (dev mode only)
+- Introduce `initPromise` and `ensureInit` in `db.svelte.ts` to prevent race conditions during DB setup
+- Ensure all CRUD operations wait for database initialization before execution
+- Switch PWA manifest and service worker paths to relative in `app.html` for better deployment compatibility
+- Refine `package.json` preview script to explicitly use the `build` directory
+- Improve database error handling during the initialization phase
+- Track item usage frequency for prioritized history sorting
+- Add development tools (seed/clear data) with safer async handling
