@@ -1,8 +1,9 @@
-feat: add item frequency tracking and development tools
+feat: enhance PWA robustness and database initialization
 
-- Implement `usageCount` on `ItemDoc` to track frequency of item additions
-- Sort history modal by `usageCount` (descending) for quicker re-selection
-- Add `Seed Data` and `Clear All` development controls to Sidebar (visible in dev mode only)
-- Integrate `virtual:pwa-info` in root layout for improved PWA metadata handling
-- Update `app.html` with improved formatting and metadata structure
-- Fix database item addition logic to increment usage counts correctly
+- Refactor `db.svelte.ts` to use a lazy, browser-only PouchDB initialization pattern
+- Add explicit service worker registration and web manifest links to `app.html`
+- Update `vite.config.ts` with explicit PWA `id`, `purpose`, and `injectRegister` settings
+- Implement safer database access across all CRUD operations with `getDbInstance`
+- Simplify root layout by removing redundant `pwaInfo` handling
+- Track item `usageCount` for frequency-based sorting in history
+- Add development tools (seed/clear data) to Sidebar (dev mode only)

@@ -15,8 +15,13 @@ export default defineConfig({
         sveltekit(),
         SvelteKitPWA({
             registerType: 'autoUpdate',
+            injectRegister: 'script',
             includeAssets: ['favicon.svg', 'icons/*.png'],
+            kit: {
+                adapterFallback: 'index.html'
+            },
             manifest: {
+                id: '/',
                 name: 'Stack – List Manager',
                 short_name: 'Stack',
                 description: 'A multi-purpose list manager PWA',
@@ -29,7 +34,8 @@ export default defineConfig({
                     {
                         src: 'icons/icon-192.png',
                         sizes: '192x192',
-                        type: 'image/png'
+                        type: 'image/png',
+                        purpose: 'any'
                     },
                     {
                         src: 'icons/icon-512.png',
@@ -40,7 +46,10 @@ export default defineConfig({
                 ]
             },
             workbox: {
-                globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}']
+                globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}'],
+                additionalManifestEntries: [
+                    { url: 'index.html', revision: Date.now().toString() }
+                ]
             }
         })
     ]

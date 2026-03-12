@@ -2,9 +2,18 @@ import PouchDB from 'pouchdb-browser';
 import PouchDBFind from 'pouchdb-find';
 import type { ListDoc, ItemDoc, StackDoc } from './types.js';
 
+import { browser } from '$app/environment';
+
 PouchDB.plugin(PouchDBFind);
 
-const db = new PouchDB<StackDoc>('stackdb');
+let db: PouchDB.Database<StackDoc> | null = null;
+
+function getDbInstance() {
+    if (!db && browser) {
+        db = new PouchDB<StackDoc>('stackdb');
+    }
+    return db;
+}
 
 // ---------------------
 // Reactive State (Runes)
@@ -17,17 +26,18 @@ let initialized = $state(false);
 // Initialization
 // ---------------------
 async function init() {
-    if (initialized) return;
+    const database = getDbInstance();
+    if (initialized || !database) return;
 
     // Create index for item lookups by listId
-    await db.createIndex({
+    await database.createIndex({
         index: { fields: ['type', 'listId', 'text'] }
     });
 
     await loadLists();
 
     // Live changes feed — pushes updates into runes
-    db.changes({
+    database.changes({
         live: true,
         since: 'now',
         include_docs: true
@@ -92,7 +102,9 @@ function handleUpsert(doc: StackDoc) {
 // Efficient Fetching
 // ---------------------
 async function loadLists() {
-    const result = await db.allDocs({
+    const database = getDbInstance();
+    if (!database) return;
+    const result = await database.allDocs({
         startkey: 'list:',
         endkey: 'list:\ufff0',
         include_docs: true
@@ -104,10 +116,13 @@ async function loadLists() {
 }
 
 async function loadItems(listId: string): Promise<ItemDoc[]> {
-    if (itemsByList[listId]) return itemsByList[listId];
-
-    const result = await db.find({
-        selector: { type: 'item', listId }
+    const database = getDbInstance();
+    if (!database) return [];
+    const result = await database.find({
+        selector: {
+            type: 'item',
+            listId
+        }
     });
     const items = (result.docs as ItemDoc[]).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     itemsByList = { ...itemsByList, [listId]: items };
@@ -131,23 +146,28 @@ async function createList(title: string, icon: string, color: string, enableQuan
         enableQuantity,
         createdAt: new Date().toISOString()
     };
-    await db.put(doc);
+    const database = getDbInstance();
+    if (database) await database.put(doc);
     return doc;
 }
 
 async function updateList(list: ListDoc): Promise<void> {
-    await db.put(list);
+    const database = getDbInstance();
+    if (database) await database.put(list);
 }
 
 async function deleteList(listId: string): Promise<void> {
     const items = await loadItems(listId);
+    const database = getDbInstance();
+    if (!database) return;
+
     for (const item of items) {
         if (item._rev) {
-            await db.remove(item._id, item._rev);
+            await database.remove(item._id, item._rev);
         }
     }
-    const list = await db.get(listId);
-    await db.remove(list._id, list._rev!);
+    const list = await database.get(listId) as ListDoc;
+    await database.remove(list._id, list._rev!);
 }
 
 // ---------------------
@@ -158,6 +178,9 @@ async function addItem(listId: string, text: string, quantity?: number): Promise
     const existingItems = itemsByList[listId] || await loadItems(listId);
     const existing = existingItems.find(i => i.text.toLowerCase() === text.toLowerCase());
 
+    const database = getDbInstance();
+    if (!database) throw new Error('Database not initialized');
+
     if (existing) {
         const updated = {
             ...existing,
@@ -167,7 +190,7 @@ async function addItem(listId: string, text: string, quantity?: number): Promise
             // Only update quantity if provided
             ...(quantity !== undefined ? { quantity } : {})
         };
-        await db.put(updated);
+        await database.put(updated);
         return updated;
     }
 
@@ -182,31 +205,38 @@ async function addItem(listId: string, text: string, quantity?: number): Promise
         quantity,
         createdAt: new Date().toISOString()
     };
-    await db.put(doc);
+    await database.put(doc);
     return doc;
 }
 
 async function toggleItem(item: ItemDoc): Promise<void> {
-    await db.put({ ...item, completed: !item.completed });
+    const updated = { ...item, completed: !item.completed };
+    const database = getDbInstance();
+    if (database) await database.put(updated);
 }
 
 async function deleteItem(item: ItemDoc): Promise<void> {
-    // Soft delete: move to history
-    await db.put({ ...item, inList: false, completed: false });
+    const updated = { ...item, inList: false };
+    const database = getDbInstance();
+    if (database) await database.put(updated);
 }
 
 async function permanentlyDeleteItem(item: ItemDoc): Promise<void> {
-    if (item._rev) {
-        await db.remove(item._id, item._rev);
+    const database = getDbInstance();
+    if (database && item._rev) {
+        await database.remove(item._id, item._rev);
     }
 }
 
-async function updateItem(item: ItemDoc, updates: Partial<ItemDoc>): Promise<void> {
-    await db.put({ ...item, ...updates });
+async function updateItem(item: ItemDoc, changes: Partial<ItemDoc>): Promise<void> {
+    const updated = { ...item, ...changes };
+    const database = getDbInstance();
+    if (database) await database.put(updated);
 }
 
 async function updateItemQuantity(item: ItemDoc, quantity?: number): Promise<void> {
-    await db.put({ ...item, quantity });
+    const database = getDbInstance();
+    if (database) await database.put({ ...item, quantity });
 }
 
 // ---------------------
@@ -232,26 +262,22 @@ async function resetListItems(listId: string): Promise<void> {
     if (activeItems.length === 0) return;
 
     try {
-        const updates = activeItems.map(item => ({
-            ...item,
-            inList: false,
-            completed: false
-        }));
-
-        const responses = await db.bulkDocs(updates);
+        const database = getDbInstance();
+        if (!database) return;
         
-        // Update local state for all successful updates
-        responses.forEach((response, index) => {
-            if ('ok' in response && response.ok) {
-                const item = activeItems[index];
-                const localItem = items.find(i => i._id === item._id);
-                if (localItem) {
-                    localItem.inList = false;
-                    localItem.completed = false;
-                    localItem._rev = response.rev;
-                }
+        for (const item of activeItems) {
+            const localItem = itemsByList[listId].find((i) => i._id === item._id);
+            if (localItem && localItem._rev) {
+                const response = await database.put({
+                    ...item,
+                    inList: false,
+                    completed: false
+                });
+                localItem.inList = false;
+                localItem.completed = false;
+                localItem._rev = response.rev;
             }
-        });
+        }
     } catch (error) {
         console.error('Error resetting list:', error);
         throw error;
