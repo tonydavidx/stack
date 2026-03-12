@@ -19,6 +19,7 @@ export interface ItemDoc {
     inList: boolean; // True if active in the list, false if moved to history
     quantity?: number;
     category?: string;
+    usageCount?: number; // Tracks how many times this item was added to the list
     createdAt: string;
 }
 

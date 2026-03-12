@@ -163,6 +163,7 @@ async function addItem(listId: string, text: string, quantity?: number): Promise
             ...existing,
             inList: true,
             completed: false,
+            usageCount: (existing.usageCount || 0) + 1,
             // Only update quantity if provided
             ...(quantity !== undefined ? { quantity } : {})
         };
@@ -177,6 +178,7 @@ async function addItem(listId: string, text: string, quantity?: number): Promise
         text,
         completed: false,
         inList: true,
+        usageCount: 1,
         quantity,
         createdAt: new Date().toISOString()
     };

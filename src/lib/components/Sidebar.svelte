@@ -2,6 +2,8 @@
     import { page } from '$app/state';
     import { goto } from '$app/navigation';
     import type { ListDoc } from '$lib/types.js';
+    import { seedMockData, clearAllData } from '$lib/mockData.js';
+    import { dev } from '$app/environment';
 
     interface Props {
         lists: ListDoc[];
@@ -78,6 +80,23 @@
                 <p class="empty-hint">No lists yet</p>
             {/if}
         </div>
+
+        {#if dev}
+            <div class="nav-divider"></div>
+            <span class="nav-section-title">Development</span>
+            <div class="dev-controls">
+                <button class="dev-btn" onclick={() => {
+                    if (confirm('Delete everything?')) clearAllData();
+                }}>
+                    <span class="nav-icon">🗑️</span>
+                    <span class="nav-label">Clear All</span>
+                </button>
+                <button class="dev-btn seed" onclick={() => seedMockData()}>
+                    <span class="nav-icon">🌱</span>
+                    <span class="nav-label">Seed Data</span>
+                </button>
+            </div>
+        {/if}
     </nav>
 
     <div class="sidebar-footer">
@@ -292,5 +311,43 @@
         border-radius: 6px;
         background: rgba(99, 102, 241, 0.1);
         color: #818cf8;
+    }
+
+    /* Dev Controls */
+    .dev-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 4px 0;
+    }
+
+    .dev-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 8px 14px;
+        border: none;
+        background: transparent;
+        border-radius: 10px;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 13px;
+        text-align: left;
+    }
+
+    .dev-btn:hover {
+        background: rgba(148, 163, 184, 0.04);
+        color: #94a3b8;
+    }
+
+    .dev-btn.seed {
+        color: #10b981;
+    }
+
+    .dev-btn.seed:hover {
+        background: rgba(16, 185, 129, 0.08);
+        color: #34d399;
     }
 </style>

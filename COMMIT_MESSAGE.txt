@@ -1,10 +1,8 @@
-feat: implement item categorization, soft-delete, and list reset
+feat: add item frequency tracking and development tools
 
-- Introduce "Edit Items" view for managing name, default quantity, and category
-- Implement a soft-delete system (inList flag) to move items between list and history
-- Support item categorization with automatic grouping in the list view
-- Add "Reset List" functionality to move all active items to history at once
-- Refactor database store with soft-delete logic and bulk update support
-- Improve UI with a 3-dot dropdown menu for advanced list actions
-- Add loading states and improved error handling for database initialization
-- Enhance checkbox styling with a custom CSS checkmark
+- Implement `usageCount` on `ItemDoc` to track frequency of item additions
+- Sort history modal by `usageCount` (descending) for quicker re-selection
+- Add `Seed Data` and `Clear All` development controls to Sidebar (visible in dev mode only)
+- Integrate `virtual:pwa-info` in root layout for improved PWA metadata handling
+- Update `app.html` with improved formatting and metadata structure
+- Fix database item addition logic to increment usage counts correctly

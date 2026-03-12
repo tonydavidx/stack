@@ -4,6 +4,7 @@
     import { getDb } from '$lib/db.svelte.js';
     import Sidebar from '$lib/components/Sidebar.svelte';
     import ListDialog from '$lib/components/ListDialog.svelte';
+    import { pwaInfo } from 'virtual:pwa-info';
 
     let { children } = $props();
 
@@ -25,6 +26,9 @@
 <svelte:head>
     <title>Stack – List Manager</title>
     <meta name="description" content="A multi-purpose list manager PWA" />
+    {#if pwaInfo}
+        {@html pwaInfo.content}
+    {/if}
 </svelte:head>
 
 <div class="app-layout">

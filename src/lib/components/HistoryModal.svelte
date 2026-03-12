@@ -22,10 +22,13 @@
             ? history.filter(item => item.text.toLowerCase().includes(searchQuery.toLowerCase()))
             : [...history];
             
-        // For history modal, we don't strictly need to filter out existingItems 
-        // since 'history' already excludes items with inList: true.
-        // But we might have items with same text but different IDs (edge case).
-        return base.sort((a, b) => a.text.localeCompare(b.text));
+        // Sort by usageCount (descending) then alphabetically
+        return base.sort((a, b) => {
+            const countA = a.usageCount || 0;
+            const countB = b.usageCount || 0;
+            if (countB !== countA) return countB - countA;
+            return a.text.localeCompare(b.text);
+        });
     });
 
     const displayHistory = $derived(filteredHistory());
